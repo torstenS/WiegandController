@@ -37,6 +37,7 @@ void setup()
 
   // setup helpers
   SetupCodeHandling();
+  SetupFS20();
   WiegandSetup();
   SetupUI(); 
   

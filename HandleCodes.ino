@@ -39,7 +39,8 @@
 #define PUNISHTIME_SEC 3*60UL        // sleep this time if punish, this is also the time window for wrong codes to count up
 
 #define MINRAMBYTES 200              // min amount of bytes to keep free in RAM for stack
-#define MAXEEPROMBYTES 1024          // max bytes that the EEProm can take
+#define MAXEEPROMBYTES 1022          // max bytes that the EEProm can take for the codelist. 
+                                     // 2 bytes needed for tamper flag and door status
 
 // struct / array for code storage
 #define MAXNAMESIZE 10               // how many bytes for storing a name in codelist - keep mem in mind and term character!
@@ -75,7 +76,7 @@ int freeRAM()
 void LoadFromEEProm()
 {
   int bytes, addr=0;
-  addr+=sizeof(byte); // skip tamper-flag
+  addr+=2*sizeof(byte); // skip tamper-flag and door status
   eeprom_read_block((void*)&iCodeListSize, (void*)addr, sizeof(iCodeListSize)); addr+=sizeof(iCodeListSize);
   if (iCodeListSize>iMaxCodeList) {iCodeListSize=0;}  // reset if invalid size
   if (iCodeListSize<0)            {iCodeListSize=0;}  // reset if invalid size
@@ -97,6 +98,7 @@ void SaveToEEProm()
   byte bTamperFlag = 0;
   
   eeprom_write_block((const void*)&bTamperFlag  , (void*)addr, sizeof(bTamperFlag));   addr+=sizeof(bTamperFlag);
+  addr+=sizeof(byte);  // skip door status 
   eeprom_write_block((const void*)&iCodeListSize, (void*)addr, sizeof(iCodeListSize)); addr+=sizeof(iCodeListSize);
 
   if (iCodeListSize>0)
@@ -320,6 +322,9 @@ unsigned long DoDoor(int iCodeListEntry)
     digitalWrite(PINRFPOWER, LOW);
     digitalWrite(PINLED,HIGH);
     
+    pause(150);
+    SetDoorStatus(pCodeList[iCodeListEntry].bAction == 0);
+    
     // only open codes reset wrong code counter
     // otherwise there would be a trick to keep the counter low: enter close command, which may be public
     if (pCodeList[iCodeListEntry].bAction != 0)
@@ -407,4 +412,5 @@ void DoRing()
   Serial.println(F("Ring."));
   pause(PINRINGACTIVE_MS);
   digitalWrite(PINRING,!PINRINGACTIVE);
+  doSendRing();
 }

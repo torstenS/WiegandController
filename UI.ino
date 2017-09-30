@@ -102,6 +102,13 @@ void ProcessBuffer()
       
       iMenuMode=0;
     }
+    else if (strcmp(sInBuffer,"4") == 0)
+    {
+      // read a card
+      Serial.println(F("Hold card to reader. Return to exit."));
+      setDryRun(true);
+      iMenuMode=4;
+    }
     else if (strcmp(sInBuffer,"7") == 0)
     {
       // reboot
@@ -194,7 +201,14 @@ void ProcessBuffer()
     }
     iMenuMode=0;
   }
-  
+  else if (iMenuMode==4)
+  {
+    if (strlen(sInBuffer)==0)
+    {
+      iMenuMode=0;
+      setDryRun(false);
+    }
+  }  
   // prepare for next inputs
   sInBuffer[0]=0;
   if (iMenuMode==0) {PrintMainMenu();}
@@ -211,6 +225,7 @@ void PrintMainMenu()
   Serial.println(F("  1     -> learn a code / paste csv-list of codes"));
   Serial.println(F("  2     -> delete a code"));
   Serial.println(F("  3     -> display all codes"));
+  Serial.println(F("  4     -> read a card"));
   Serial.println(F("  7     -> reset tamper flag & reboot"));
   Serial.println(F("  8     -> save all codes to eeprom"));
   Serial.println(F("  999   -> delete ALL codes in eeprom"));

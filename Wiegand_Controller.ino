@@ -22,6 +22,8 @@ unsigned long ulKeypadCode;
 unsigned long ulKeypadFacility;
 unsigned long ulCodeCount;
 unsigned long ulLastCodeEntry;
+bool bDryRun;
+
 #define KEYTIMEOUT_MS 10000    // after this amount of milliseconds, the code entry forgets any prior input
 #define INVERT4BIT 0           // invert 4 Bit entry (some Wiegand devices need this)
 
@@ -44,10 +46,16 @@ void setup()
   ulCodeCount=0;
   ulLastCodeEntry=0;
   
+  bDryRun = false;
+  
   Serial.println(F(""));
   PrintMainMenu();
 }
 
+void setDryRun(bool in)
+{
+  bDryRun=in;
+}
 
 ///////////////////////////////////////////
 // main loop - handles reception & decoding
@@ -131,7 +139,10 @@ void loop()
         Serial.print(F(","));
         Serial.println(ulCardCode); 
 
-        ulKeypadFacility = HandleCode(ulFacilityCode, ulCardCode);
+        if (!bDryRun)
+        {
+          ulKeypadFacility = HandleCode(ulFacilityCode, ulCardCode);
+        }
       } 
     }
     else 

@@ -241,6 +241,9 @@ unsigned long HandleCode(unsigned long ulFacilityCode, unsigned long ulCardCode)
     if (pCodeList[ii].ulCardCode==ulCardCode)
     {
       if (pCodeList[ii].ulFacilityCode==ulFacilityCode) { bFound=true; }
+      // Facility code 255 is a shared code fitting to all keypad facilities.
+      // Used to have a shared code for locking the door.
+      if (pCodeList[ii].ulFacilityCode==255 && ulFacilityCode>1) { bFound=true; }
     }
     
     if (!bFound) {ii++;}

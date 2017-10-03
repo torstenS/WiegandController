@@ -36,18 +36,22 @@
 #define PINRINGACTIVE HIGH           // HIGH for the schematics posted in blog; LOW for typical Arduino Relay Boards
 
 #define PUNISHWRONGCODES 5           // after this amount of wrong codes, sleep for punish time
-#define PUNISHTIME_SEC 3*60UL        // sleep this time if punish, this is also the time window for wrong codes to count up
+//#define PUNISHTIME_SEC 3*60UL        // sleep this time if punish, this is also the time window for wrong codes to count up
+#define PUNISHTIME_SEC 3UL        // sleep this time if punish, this is also the time window for wrong codes to count up
 
 #define MINRAMBYTES 200              // min amount of bytes to keep free in RAM for stack
-#define MAXEEPROMBYTES 1022          // max bytes that the EEProm can take for the codelist. 
-                                     // 2 bytes needed for tamper flag and door status
+#define EEPROMSIZE 1024
+#define CODESTART 16                 
+                                     // lower 16 bytes are used for various data
+#define MAXEEPROMBYTES (EEPROMSIZE - CODESTART)   
+                                     // max bytes that the EEProm can take for the codelist. 
 
 // struct / array for code storage
 #define MAXNAMESIZE 10               // how many bytes for storing a name in codelist - keep mem in mind and term character!
 struct CODELIST
 {
 char sName[MAXNAMESIZE];
-unsigned long ulFacilityCode;
+byte bFunctionCode;
 unsigned long ulCardCode;
 byte bAction;
 };
@@ -75,8 +79,7 @@ int freeRAM()
 ////////////////////////////
 void LoadFromEEProm()
 {
-  int bytes, addr=0;
-  addr+=2*sizeof(byte); // skip tamper-flag and door status
+  int addr=CODESTART;
   eeprom_read_block((void*)&iCodeListSize, (void*)addr, sizeof(iCodeListSize)); addr+=sizeof(iCodeListSize);
   if (iCodeListSize>iMaxCodeList) {iCodeListSize=0;}  // reset if invalid size
   if (iCodeListSize<0)            {iCodeListSize=0;}  // reset if invalid size
@@ -94,11 +97,7 @@ void LoadFromEEProm()
 //////////////////////////
 void SaveToEEProm()
 {
-  int addr=0;
-  byte bTamperFlag = 0;
-  
-  eeprom_write_block((const void*)&bTamperFlag  , (void*)addr, sizeof(bTamperFlag));   addr+=sizeof(bTamperFlag);
-  addr+=sizeof(byte);  // skip door status 
+  int addr=CODESTART;
   eeprom_write_block((const void*)&iCodeListSize, (void*)addr, sizeof(iCodeListSize)); addr+=sizeof(iCodeListSize);
 
   if (iCodeListSize>0)
@@ -226,10 +225,10 @@ void SetupCodeHandling()
 ///////////////////////////////////////////////////////////
 // handle a code that has been received and process further
 ///////////////////////////////////////////////////////////
-unsigned long HandleCode(unsigned long ulFacilityCode, unsigned long ulCardCode)
+byte HandleCode(byte bFunctionCode, unsigned long ulCardCode)
 {
   // is it a ring? - check for sebury proprietary format; cardcode may contain different values
-  if ( (ulCardCode==6 || ulCardCode==7 ) && WiegandBitCount()==18)
+  if ( bFunctionCode==2 && (ulCardCode==6 || ulCardCode==7 ) )
   {
     DoRing();
     return(0);
@@ -242,18 +241,44 @@ unsigned long HandleCode(unsigned long ulFacilityCode, unsigned long ulCardCode)
   {
     if (pCodeList[ii].ulCardCode==ulCardCode)
     {
-      if (pCodeList[ii].ulFacilityCode==ulFacilityCode) { bFound=true; }
-      // Facility code 255 is a shared code fitting to all keypad facilities.
+      if (pCodeList[ii].bFunctionCode==bFunctionCode) { bFound=true; }
+      // Function code 255 is a shared code fitting to all keypad functions.
       // Used to have a shared code for locking the door.
-      if (pCodeList[ii].ulFacilityCode==255 && ulFacilityCode>1) { bFound=true; }
+      if (pCodeList[ii].bFunctionCode==255 && bFunctionCode>=10) { bFound=true; }
     }
     
     if (!bFound) {ii++;}
   }
   
   if (bFound) 
-  { 
-    return(DoDoor(ii));
+  {
+    byte bAction = pCodeList[ii].bAction;
+    Serial.print(pCodeList[ii].sName);
+    Serial.println(F(" authenticated."));
+     
+    // actions >= 10 request PIN for user
+    if (bAction >= 10)
+    {
+      Serial.print(F("Request pin for user "));
+      Serial.println(bAction);
+      // short indication to request keypad input
+      digitalWrite(PINLED,LOW);  // LED is active on low
+      digitalWrite(PINBUZZ,LOW);  // Buzzer is active on low
+      pause(300);
+      digitalWrite(PINBUZZ,HIGH); 
+      digitalWrite(PINLED,HIGH);
+      return(bAction);
+    }
+
+     Serial.print(F("Door activity "));
+     Serial.print(bAction);
+     Serial.print(F(" at runtime "));
+     Serial.print(millis());
+     Serial.print(F(" for function code "));
+     Serial.println(bFunctionCode);
+ 
+     DoDoor(bAction, bFunctionCode);
+     return(0);
   }
   
   DoFail(); 
@@ -264,40 +289,16 @@ unsigned long HandleCode(unsigned long ulFacilityCode, unsigned long ulCardCode)
 ///////////////////////////////////////////
 // code authenticated - log and act on door
 ///////////////////////////////////////////
-unsigned long DoDoor(int iCodeListEntry)
+void DoDoor(byte bAction, byte bFunction)
 {
-  Serial.print(pCodeList[iCodeListEntry].sName);
-  Serial.print(F(" authenticated. Door activity "));
-  Serial.print(pCodeList[iCodeListEntry].bAction);
-  Serial.print(F(" at runtime "));
-  Serial.println(millis());
-
-  // V 1.2: Activity 3 = ring
-  //if (pCodeList[iCodeListEntry].bAction == 3)
-  //{
-  //  DoRing();
-  //}
-  //else
-  
-  // actions > 1 set keypad facility
-  if (pCodeList[iCodeListEntry].bAction > 1)
-  {
-    // short indication to request keypad input
-    digitalWrite(PINLED,LOW);  // LED is active on low
-    digitalWrite(PINBUZZ,LOW);  // Buzzer is active on low
-    pause(500);
-    digitalWrite(PINBUZZ,HIGH); 
-    digitalWrite(PINLED,HIGH);
-    return(pCodeList[iCodeListEntry].bAction);
-  }
 
     digitalWrite(PINRFPOWER, HIGH);  // power to RF transmitter
     pause(50);
-    if (pCodeList[iCodeListEntry].bAction == 1)
+    if (bAction == 1)
     {
       digitalWrite(PINOPEN, PINOPENCLOSEACTIVE);
     }
-    else if (pCodeList[iCodeListEntry].bAction == 0)
+    else if (bAction == 0)
     {
       digitalWrite(PINCLOSE, PINOPENCLOSEACTIVE);
     }
@@ -312,9 +313,9 @@ unsigned long DoDoor(int iCodeListEntry)
     #else
     { 
       // for old lock-drive: rf long on, but do not beep all time
-      pause(500);
+      pause(300);
       digitalWrite(PINBUZZ,HIGH); 
-      pause(PINRFACTIVE_MS-500);
+      pause(PINRFACTIVE_MS-300);
     }
     #endif
     digitalWrite(PINOPEN, !PINOPENCLOSEACTIVE);
@@ -323,17 +324,15 @@ unsigned long DoDoor(int iCodeListEntry)
     digitalWrite(PINLED,HIGH);
     
     pause(150);
-    SetDoorStatus(pCodeList[iCodeListEntry].bAction == 0);
+    SetDoorStatus(bAction == 0, bFunction);
     
     // only open codes reset wrong code counter
     // otherwise there would be a trick to keep the counter low: enter close command, which may be public
-    if (pCodeList[iCodeListEntry].bAction != 0)
+    if (bAction != 0)
     {
       iWrongCodeCount=0;
       SetTamperFlag(false);
     }
-
-  return(0);
 }
 
 
@@ -347,10 +346,11 @@ void DoFail()
   // set tamper code - wrong code entered
   // we only remove the tampering by entry of a correct code OR after punish time
   SetTamperFlag(true);
-  
+
+  // provide some signal for wrong code
+  /*  
   pause(100);  // small pause to separate from code entry / tag detection beeps
   
-  // provide some signal for wrong code
   for (ii=0;ii<5;ii++) // sum of loop is one second
   {
     digitalWrite(PINLED,LOW);  // LED is active on low
@@ -360,6 +360,12 @@ void DoFail()
     digitalWrite(PINBUZZ,HIGH);
     pause(100); 
   }
+  */
+  
+  digitalWrite(PINBUZZ,LOW);  // Buzzer is active on low
+  pause(900);
+  digitalWrite(PINBUZZ,HIGH);
+  pause(100); 
   
   // last wrong code long ago? - reset or count up
   if (millis()>ulLastWrongCode_ms+PUNISHTIME_SEC*1000UL) 

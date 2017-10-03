@@ -72,7 +72,7 @@ void ProcessBuffer()
   {
     if (strcmp(sInBuffer,"1") == 0)
     {
-      Serial.println(F("To add code/card enter: <Name,FacilityCode,CardCode,Action> as list or just <enter> to cancel"));
+      Serial.println(F("To add code/card enter: <Name,FunctionCode,CardCode,Action> as list or just <enter> to cancel"));
       Serial.print(F(">"));
       iMenuMode=1;
     }
@@ -86,12 +86,12 @@ void ProcessBuffer()
     {
       // display all codes
       int ii;
-      Serial.println(F("Codelist - Format: Name,FacilityCode,CardCode,Action"));
+      Serial.println(F("Codelist - Format: Name,FunctionCode,CardCode,Action"));
       for (ii=0;ii<iCodeListSize;ii++)
       {
         Serial.print(pCodeList[ii].sName);
         Serial.print(F(","));
-        Serial.print(pCodeList[ii].ulFacilityCode);
+        Serial.print(pCodeList[ii].bFunctionCode);
         Serial.print(F(","));
         Serial.print(pCodeList[ii].ulCardCode);
         Serial.print(F(","));
@@ -147,7 +147,7 @@ void ProcessBuffer()
       if (cSecondComma) cThirdComma=strchr(cSecondComma+1,',');
       if (cFirstComma!=NULL && cSecondComma!=NULL && cThirdComma!=NULL)
       {
-        pCodeList[iCodeListSize].ulFacilityCode = atol(cFirstComma+1);
+        pCodeList[iCodeListSize].bFunctionCode  = atol(cFirstComma+1);
         pCodeList[iCodeListSize].ulCardCode     = atol(cSecondComma+1) & CARDCODE_MASK;
         pCodeList[iCodeListSize].bAction        = atoi(cThirdComma+1);
         
@@ -232,7 +232,8 @@ void PrintMainMenu()
   Serial.print  (F("Notes: Name entries max "));
   Serial.print  (MAXNAMESIZE-1);
   Serial.println(F(" characters."));
-  Serial.println(F("       Action entries 1 for open, 0 for close, >1 request pin"));
+  Serial.println(F("       Function codes: 0 keypad, 1 card, >=10 user, 255 any user"));
+  Serial.println(F("       Action entries: 1 open, 0 close, >=10 request pin for user"));
   Serial.println(F(""));
   Serial.print  (F(">"));
 }

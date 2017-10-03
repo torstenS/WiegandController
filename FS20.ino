@@ -6,14 +6,15 @@
 #define FS20ADDR_BELL 0x11     // address byte for bell
 #define FS20ADDR_DOOR 0x12     // address byte for door
 
-bool bDoorIsLocked;
+bool isDoorLocked;
+byte bUser;
 unsigned long lastSendMillis;
 
 void SetupFS20()
 {
   pinMode(PINFS20, OUTPUT);        // pin high is active
   digitalWrite(PINFS20, LOW);
-  bDoorIsLocked = GetDoorStatus();
+  isDoorLocked = GetDoorStatus();  // sets bUser as well
   lastSendMillis = millis();
 }
 
@@ -49,10 +50,10 @@ void fs20cmd(uint16_t house, uint8_t adr, uint8_t cmd, uint8_t cmd2 = 0) {
   // fhz4linux.info/tiki-index.php?page=FS20%20Protocol
   if (cmd2 > 0) bitWrite(cmd, 5, 1); //Erweiterungsbit setzen für zusätzliches byte
   uint8_t loops = 3;
-  uint8_t sreg = SREG;
-  cli(); //Interrupts abschalten um störungen beim Senden zu vermeiden
   for (uint8_t i = 0; i < loops; ++i)
   {
+    //Interrupts abschalten um störungen beim Senden zu vermeiden
+    noInterrupts();
     sendBits(1, 13);  // 12*0, 1*1
     sendBits(hc1, 8); //Hauscode 1 FHT: Code Teil 1
     sendBits(hc2, 8); //Hauscode 2 FHT: Code Teilo 2
@@ -62,9 +63,10 @@ void fs20cmd(uint16_t house, uint8_t adr, uint8_t cmd, uint8_t cmd2 = 0) {
       sendBits(cmd2, 8); //Erweiterungs Byte
     sendBits(sum, 8); //Checksumme
     sendBits(0, 1); //Übertragungsende
+    interrupts();
     pause(10);
   }
-  SREG = sreg;
+
   pause(75);
 }
 
@@ -74,13 +76,11 @@ void doSendRing()
 }
 
 ////////////////////////////////////////////////////////////////////////////////
-// sets the tamper-flag - avoid getting around wrong code handling / punish time
-// by removing power / reboot
+// sets the door status and authenticated user
 ////////////////////////////////////////////////////////////////////////////////
-void SetDoorStatus(bool isLocked)
+void SetDoorStatus(bool isLocked, byte bUserIn)
 {
-  bDoorIsLocked = isLocked;
-  
+  isDoorLocked = isLocked;
   if (GetDoorStatus() != isLocked) // only, if there is a difference to EEProm
   {
     byte bDoorStatus = 0x0;
@@ -88,13 +88,18 @@ void SetDoorStatus(bool isLocked)
     {
       bDoorStatus = 0xff;
     }
-
     eeprom_write_block((const void*)&bDoorStatus  , (void*)1, sizeof(bDoorStatus));    
+  }
+  if (bUser != bUserIn)
+  {
+    bUser = bUserIn;
+    eeprom_write_block((const void*)&bUser  , (void*)2, sizeof(bUser));    
   }
   
   // report state change immediately
   lastSendMillis = 0;
   doSendStatus();
+
 }
 
 
@@ -106,6 +111,7 @@ bool GetDoorStatus()
 {
   byte bDoorStatus;
   eeprom_read_block((void*)&bDoorStatus, (void*)1, sizeof(bDoorStatus));
+  eeprom_read_block((void*)&bUser, (void*)2, sizeof(bUser));
 
   // counts bits set
   byte bCount = 0;
@@ -128,7 +134,9 @@ void doSendStatus()
 {
   if (lastSendMillis + 3 * 60 * 1000 < millis())   // report status every 3 minutes
   {
-    fs20cmd(FS20HC, FS20ADDR_DOOR, bDoorIsLocked ? 16 : 0);
+    // proprietary extension. send on,off code with user in extension byte
+    fs20cmd(FS20HC, FS20ADDR_DOOR, isDoorLocked ? 16 : 0, bUser);
     lastSendMillis = millis();
   }
 }
+

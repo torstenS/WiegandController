@@ -145,6 +145,15 @@ bool WiegandDecode()
   int ilowfac=0,ihighfac=0;
   int ilowcard=0,ihighcard=0;
   
+  Serial.print(F("Received "));
+  Serial.print(iBitCount);
+  Serial.print(F(" bits: "));
+  for (i=0; i<iBitCount;  i++)
+  {
+    Serial.print((pDataBits[i]&1)?"1":"0");
+  }
+  Serial.println(".");
+  
   switch (iBitCount)
   {
     case 4:   // 4 Bit HID --> separate keys
@@ -153,8 +162,8 @@ bool WiegandDecode()
       break;
     case 8:   // 8 bit HID --> seperate keys
       ilowfac  = 0;  ihighfac  = 0;
-      ilowcard = 0;  ihighfac  = 8;
-      
+      ilowcard = 0;  ihighcard = 8;
+      break;
     case 18:  // sebury proprietary ring indication
       ilowfac  = 0;  ihighfac  = 0;
       ilowcard = 1;  ihighcard = 17;
@@ -200,9 +209,9 @@ bool WiegandDecode()
   // check 8 bit key codes
   if (iBitCount == 8)
   {
-    byte high = (ulCardCode & 0xf0) >> 4;
+    byte high = ulCardCode >> 4;
     byte low  = ulCardCode & 0x0f;
-    if ( (high ^ 0x0f) != low )
+    if ( (~high & 0x0f) != low )
     {
       return(false);
     } else {

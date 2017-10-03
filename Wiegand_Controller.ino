@@ -19,7 +19,7 @@
 
 // globals for code entry with separate keystrokes
 unsigned long ulKeypadCode;
-unsigned long ulKeypadFacility;
+byte          bKeypadUser;
 unsigned long ulCodeCount;
 unsigned long ulLastCodeEntry;
 bool bDryRun;
@@ -43,7 +43,7 @@ void setup()
   
   // setup for separate key-stroke entries
   ulKeypadCode=0;
-  ulKeypadFacility=0;
+  bKeypadUser=0;
   ulCodeCount=0;
   ulLastCodeEntry=0;
   
@@ -66,10 +66,10 @@ void loop()
   unsigned long ulFacilityCode, ulCardCode;
   
   // timeout on Keypad input
-  if (ulKeypadFacility && ulLastCodeEntry+KEYTIMEOUT_MS<millis())
+  if (bKeypadUser && (ulLastCodeEntry+KEYTIMEOUT_MS<millis()))
   {
-    Serial.println(F("Reseting Keypad facility code"));
-    ulKeypadFacility = 0;
+    Serial.println(F("Reseting keypad user"));
+    bKeypadUser = 0;
   }
   // we have data?
   if (WiegandAvailable())
@@ -105,7 +105,10 @@ void loop()
         {
           Serial.print(F("4-Bit Wiegand - Manual code entry finalized:"));
           Serial.println(ulKeypadCode);
-          ulKeypadFacility = HandleCode(ulKeypadFacility, ulKeypadCode);
+          if (!bDryRun)
+          {
+            bKeypadUser = HandleCode(bKeypadUser, ulKeypadCode);
+          }
           ulKeypadCode=0;
           ulCodeCount = 0;
         }
@@ -142,7 +145,16 @@ void loop()
 
         if (!bDryRun)
         {
-          ulKeypadFacility = HandleCode(ulFacilityCode, ulCardCode);
+          // 18 bit long is proprietary format for door bell
+          // function Code 1 is card
+          // function code 2 is door bell
+          // other function codes apply for keypad entry
+          byte bFunctionCode = (WiegandBitCount()==18 ? 2 : 1);
+          bKeypadUser = HandleCode(bFunctionCode, ulCardCode);
+          // allow for KEYTIMEOUT_MS to enter PIN
+          ulKeypadCode = 0;
+          ulCodeCount = 0;          
+          ulLastCodeEntry = millis();
         }
       } 
     }
@@ -154,5 +166,6 @@ void loop()
     // clean up and get ready for the next card
     WiegandReset();
   }
+  doSendStatus();
 }
 

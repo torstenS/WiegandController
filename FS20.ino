@@ -1,21 +1,22 @@
 #include  <util/parity.h>
 
-#define PINFS20 5              // output pin for FS20 send
+#define PINFS20 12             // output pin for FS20 send
 
 #define FS20HC        0x35a4   // housecode
 #define FS20ADDR_BELL 0x11     // address byte for bell
 #define FS20ADDR_DOOR 0x12     // address byte for door
+#define REPORT_INTERVALL (3 * 60 * 1000UL)   // report every 3 minutes
 
 bool isDoorLocked;
 byte bUser;
-unsigned long lastSendMillis;
+unsigned long nextReportMillis;
 
 void SetupFS20()
 {
   pinMode(PINFS20, OUTPUT);        // pin high is active
   digitalWrite(PINFS20, LOW);
   isDoorLocked = GetDoorStatus();  // sets bUser as well
-  lastSendMillis = millis();
+  nextReportMillis = millis() + REPORT_INTERVALL;
 }
 
 void sendBit(uint8_t sbit)
@@ -42,13 +43,13 @@ void sendBits(uint16_t data, uint8_t bits) {
 void fs20cmd(uint16_t house, uint8_t adr, uint8_t cmd, uint8_t cmd2 = 0) {
   uint8_t hc1 = house >> 8;
   uint8_t hc2 = house;
+  if (cmd2 > 0) bitWrite(cmd, 5, 1); //Erweiterungsbit setzen für zusätzliches byte
   uint8_t sum = 6 + hc1 + hc2 + adr + cmd + cmd2; // 6 für FS20 12 für fht
   // Für die Quersumme werden nur 8 Bit genommen, der rest wird "abgeschnitten"
   // bei FHT ist das erweiterungsbyte immer gesetzt.
   // Bei FS20 steht das Erweiterungsbyte für den Timerwert.
   // Zeit = 2^(High-Nibble) * Low-Nibble * 0,25s
   // fhz4linux.info/tiki-index.php?page=FS20%20Protocol
-  if (cmd2 > 0) bitWrite(cmd, 5, 1); //Erweiterungsbit setzen für zusätzliches byte
   uint8_t loops = 3;
   for (uint8_t i = 0; i < loops; ++i)
   {
@@ -97,7 +98,7 @@ void SetDoorStatus(bool isLocked, byte bUserIn)
   }
   
   // report state change immediately
-  lastSendMillis = 0;
+  nextReportMillis = millis();
   doSendStatus();
 
 }
@@ -132,11 +133,13 @@ bool GetDoorStatus()
 
 void doSendStatus()
 {
-  if (lastSendMillis + 3 * 60 * 1000 < millis())   // report status every 3 minutes
+  if (nextReportMillis <= millis())   // report status every 3 minutes
   {
     // proprietary extension. send on,off code with user in extension byte
+    Serial.println(F("Reporting door status via FS20"));
     fs20cmd(FS20HC, FS20ADDR_DOOR, isDoorLocked ? 16 : 0, bUser);
-    lastSendMillis = millis();
+//    fs20cmd(FS20HC, FS20ADDR_DOOR, isDoorLocked ? 16 : 0);
+    nextReportMillis += REPORT_INTERVALL;
   }
 }
 

@@ -25,8 +25,8 @@
 #define PINRFACTIVE_MS 3000          // time for RF open/close commands --> use this for old version
 #endif
 
-#define PINOPEN 12                   // output pin for open; do not use pin 13! - this one goes high on boot for ~ 1 sec
-#define PINCLOSE 11                  // output pin for close
+#define PINOPEN 5                    // output pin for open; do not use pin 13! - this one goes high on boot for ~ 1 sec
+#define PINCLOSE 4                   // output pin for close
 #define PINLED 10                    // output pin for keypad led
 #define PINBUZZ 9                    // output pin for keypad buzzer
 #define PINRING 8                    // output pin for door bell
@@ -273,7 +273,8 @@ byte HandleCode(byte bFunctionCode, unsigned long ulCardCode)
      Serial.print(F("Door activity "));
      Serial.print(bAction);
      Serial.print(F(" at runtime "));
-     Serial.print(millis());
+     unsigned long currentMillis = millis();
+     Serial.print(currentMillis);
      Serial.print(F(" for function code "));
      Serial.println(bFunctionCode);
  

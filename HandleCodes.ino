@@ -263,7 +263,14 @@ byte HandleCode(byte bFunctionCode, unsigned long ulCardCode)
     byte bAction = pCodeList[ii].bAction & 0x03;
     Serial.print(pCodeList[ii].sName);
     Serial.println(F(" authenticated."));
-     
+
+    // action 3 disabled
+    if (bAction == 3)
+    {
+      Serial.println(F("Action disabled."));
+      return(0);
+    }
+    
     // actions 2 request PIN for user
     if (bAction == 2)
     {

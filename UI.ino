@@ -106,10 +106,16 @@ void ProcessBuffer()
     }
     else if (strcmp(sInBuffer,"4") == 0)
     {
+      Serial.println(F("To change a code's action enter: Name,Action"));
+      Serial.print(F(">"));
+      iMenuMode=4;
+    }
+    else if (strcmp(sInBuffer,"5") == 0)
+    {
       // read a card
       Serial.println(F("Hold card to reader. Return to exit."));
       setDryRun(true);
-      iMenuMode=4;
+      iMenuMode=5;
     }
     else if (strcmp(sInBuffer,"7") == 0)
     {
@@ -207,6 +213,46 @@ void ProcessBuffer()
   }
   else if (iMenuMode==4)
   {
+    // edit a code
+
+    // find comma delimiters
+    char *cFirstComma=NULL,*cSecondComma=NULL;  // set all to return code fail 
+    cFirstComma=strchr(sInBuffer,',');
+    if (cFirstComma!=NULL)
+    {
+      // name is max MAXNAMESIZE bytes incl termination char
+      char sName[MAXNAMESIZE];
+      if ((cFirstComma-sInBuffer)>=MAXNAMESIZE) {cFirstComma=sInBuffer+MAXNAMESIZE-1;}
+      memcpy((void*)sName,(void*)sInBuffer,cFirstComma-sInBuffer);
+      sName[cFirstComma-sInBuffer]=0; // to be sure: term char
+      
+      // search name
+      int ii=0;
+      bool bFound=false;
+      while (ii<iCodeListSize && !bFound)
+      {
+        if (strncmp(sName,pCodeList[ii].sName,MAXNAMESIZE)==0) {bFound=true;}
+        else { ii++; }
+      }
+      if (bFound)
+      {
+        pCodeList[ii].bAction        = (pCodeList[ii].bAction & 0xfc) + 
+                                       (atoi(cFirstComma+1) & 0x03);
+        Serial.println(F("Entry updated."));
+      }
+      else
+      {
+        Serial.println(F("Entry not found!"));
+      }
+    }
+    else
+    {
+      Serial.println(F("Invalid entry!"));
+    }
+    iMenuMode=0;
+  }
+  else if (iMenuMode==5)
+  {
     if (strlen(sInBuffer)==0)
     {
       iMenuMode=0;
@@ -229,7 +275,8 @@ void PrintMainMenu()
   Serial.println(F("  1     -> learn a code / paste csv-list of codes"));
   Serial.println(F("  2     -> delete a code"));
   Serial.println(F("  3     -> display all codes"));
-  Serial.println(F("  4     -> read a card"));
+  Serial.println(F("  4     -> edit a code's action"));
+  Serial.println(F("  5     -> read a card (dry run mode)"));
   Serial.println(F("  7     -> reset tamper flag & reboot"));
   Serial.println(F("  8     -> save all codes to eeprom"));
   Serial.println(F("  999   -> delete ALL codes in eeprom"));
@@ -237,7 +284,7 @@ void PrintMainMenu()
   Serial.print  (MAXNAMESIZE-1);
   Serial.println(F(" characters."));
   Serial.println(F("       Function codes: 0 keypad, 1 token, 2 bell, 255 any user, others user id"));
-  Serial.println(F("       Action entries: 0 close, 1 open, 2 request pin"));
+  Serial.println(F("       Action entries: 0 close, 1 open, 2 request pin, 3 disabled"));
   Serial.println(F(""));
   Serial.print  (F(">"));
 }

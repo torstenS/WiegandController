@@ -9,6 +9,7 @@
 
 bool isDoorLocked;
 byte bUser;
+bool toggleStatus;
 unsigned long nextReportMillis;
 
 void SetupFS20()
@@ -82,6 +83,7 @@ void doSendRing()
 void SetDoorStatus(bool isLocked, byte bUserIn)
 {
   isDoorLocked = isLocked;
+  toggleStatus = !toggleStatus;
   if (GetDoorStatus() != isLocked) // only, if there is a difference to EEProm
   {
     byte bDoorStatus = 0x0;
@@ -135,10 +137,9 @@ void doSendStatus()
 {
   if (nextReportMillis <= millis())   // report status every 3 minutes
   {
-    // proprietary extension. send on,off code with user in extension byte
+    // send on,off code with user and toggle bit in extension byte
     Serial.println(F("Reporting door status via FS20"));
-    fs20cmd(FS20HC, FS20ADDR_DOOR, isDoorLocked ? 16 : 0, bUser);
-//    fs20cmd(FS20HC, FS20ADDR_DOOR, isDoorLocked ? 16 : 0);
+    fs20cmd(FS20HC, FS20ADDR_DOOR, isDoorLocked ? 16 : 0, bUser + (toggleStatus ? 128 : 0));
     nextReportMillis += REPORT_INTERVALL;
   }
 }

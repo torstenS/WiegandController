@@ -7,7 +7,11 @@
                                  telnet 2 serial bridge, 
                                  support for usual Arduino relay boards (active = low), 
                                  support of new eQ-3 version of lock-drive
-                               
+  V. 1.3 Torsten Schumacher 2017 - adaptions for 
+                                    - user and pin management
+                                    - FS20 output
+                                    - 8bit Wiegand keycode input
+                                    
   Copyright: public domain -> do what you want
   
   For details visit http://blog.thesen.eu 
@@ -16,6 +20,7 @@
 */
 
 #include <avr/eeprom.h>
+#include <avr/wdt.h>
 
 // globals for code entry with separate keystrokes
 unsigned long ulKeypadCode;
@@ -31,9 +36,12 @@ bool bDryRun;
 // the setup routine
 ////////////////////
 void setup()
-{  
+{
+   // immediately disable watchdog timer so setup will not get interrupted
+   wdt_disable();
+
   Serial.begin(9600);
-  Serial.println(F("Wiegand Controller V.1.2 - S.T. 2015"));
+  Serial.println(F("Wiegand Controller V.1.3 - T.S. 2017"));
 
   // setup helpers
   SetupCodeHandling();
@@ -50,6 +58,22 @@ void setup()
   bDryRun = false;
   
   Serial.println(F(""));
+
+  // the following forces a pause before enabling WDT. This gives the IDE a chance to
+  // call the bootloader in case something dumb happens during development and the WDT
+  // resets the MCU too quickly. Once the code is solid, remove this.
+  delay(2L * 1000L);
+
+  // enable the watchdog timer. There are a finite number of timeouts allowed (see wdt.h).
+  // Notes I have seen say it is unwise to go below 250ms as you may get the WDT stuck in a
+  // loop rebooting.
+  // The timeouts I'm most likely to use are:
+  // WDTO_1S
+  // WDTO_2S
+  // WDTO_4S
+  // WDTO_8S
+  wdt_enable(WDTO_4S);  
+
   PrintMainMenu();
 }
 
@@ -167,5 +191,7 @@ void loop()
     WiegandReset();
   }
   doSendStatus();
+  // reset the watchdog timer
+  wdt_reset();
 }
 

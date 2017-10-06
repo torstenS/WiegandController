@@ -51,9 +51,9 @@
 struct CODELIST
 {
 char sName[MAXNAMESIZE];
-byte bFunctionCode;
+byte bFunctionCode;                  // 0=keypad, 1=token, 2=bell, 255=any user, other values user id
 unsigned long ulCardCode;
-byte bAction;
+byte bAction;                        // lower two bits action, upper 6 bits user id
 };
 CODELIST *pCodeList ;                // struct to store all known codes
 int iCodeListSize;                   // number of known codes
@@ -237,37 +237,45 @@ byte HandleCode(byte bFunctionCode, unsigned long ulCardCode)
   // try to find this code in our list
   int ii=0;
   bool bFound=false;
+  byte bUser;
   while (ii<iCodeListSize && !bFound)
   {
     if (pCodeList[ii].ulCardCode==ulCardCode)
     {
-      if (pCodeList[ii].bFunctionCode==bFunctionCode) { bFound=true; }
+      if (pCodeList[ii].bFunctionCode==bFunctionCode)
+      { 
+        bFound=true;
+        bUser = pCodeList[ii].bAction >> 2;
+      }
       // Function code 255 is a shared code fitting to all keypad functions.
       // Used to have a shared code for locking the door.
-      if (pCodeList[ii].bFunctionCode==255 && bFunctionCode>=10) { bFound=true; }
+      if (pCodeList[ii].bFunctionCode==255 && bFunctionCode>2)
+      { 
+        bFound=true;
+        bUser = bFunctionCode;
+      }
     }
-    
     if (!bFound) {ii++;}
   }
   
   if (bFound) 
   {
-    byte bAction = pCodeList[ii].bAction;
+    byte bAction = pCodeList[ii].bAction & 0x03;
     Serial.print(pCodeList[ii].sName);
     Serial.println(F(" authenticated."));
      
-    // actions >= 10 request PIN for user
-    if (bAction >= 10)
+    // actions 2 request PIN for user
+    if (bAction == 2)
     {
       Serial.print(F("Request pin for user "));
-      Serial.println(bAction);
+      Serial.println(bUser);
       // short indication to request keypad input
       digitalWrite(PINLED,LOW);  // LED is active on low
       digitalWrite(PINBUZZ,LOW);  // Buzzer is active on low
       pause(300);
       digitalWrite(PINBUZZ,HIGH); 
       digitalWrite(PINLED,HIGH);
-      return(bAction);
+      return(bUser);
     }
 
      Serial.print(F("Door activity "));
@@ -275,10 +283,10 @@ byte HandleCode(byte bFunctionCode, unsigned long ulCardCode)
      Serial.print(F(" at runtime "));
      unsigned long currentMillis = millis();
      Serial.print(currentMillis);
-     Serial.print(F(" for function code "));
-     Serial.println(bFunctionCode);
+     Serial.print(F(" for user "));
+     Serial.println(bUser);
  
-     DoDoor(bAction, bFunctionCode);
+     DoDoor(bAction, bUser);
      return(0);
   }
   
@@ -290,7 +298,7 @@ byte HandleCode(byte bFunctionCode, unsigned long ulCardCode)
 ///////////////////////////////////////////
 // code authenticated - log and act on door
 ///////////////////////////////////////////
-void DoDoor(byte bAction, byte bFunction)
+void DoDoor(byte bAction, byte bUser)
 {
 
     digitalWrite(PINRFPOWER, HIGH);  // power to RF transmitter
@@ -302,6 +310,11 @@ void DoDoor(byte bAction, byte bFunction)
     else if (bAction == 0)
     {
       digitalWrite(PINCLOSE, PINOPENCLOSEACTIVE);
+    }
+    else
+    {
+      Serial.println(F("Invalid door action. Ignoring."));
+      return;
     }
     digitalWrite(PINLED,LOW);  // LED is active on low
     digitalWrite(PINBUZZ,LOW);  // Buzzer is active on low
@@ -325,7 +338,7 @@ void DoDoor(byte bAction, byte bFunction)
     digitalWrite(PINLED,HIGH);
     
     pause(150);
-    SetDoorStatus(bAction == 0, bFunction);
+    SetDoorStatus(bAction == 0, bUser);
     
     // only open codes reset wrong code counter
     // otherwise there would be a trick to keep the counter low: enter close command, which may be public
@@ -364,7 +377,7 @@ void DoFail()
   */
   
   digitalWrite(PINBUZZ,LOW);  // Buzzer is active on low
-  pause(900);
+  pause(1200);
   digitalWrite(PINBUZZ,HIGH);
   pause(100); 
   

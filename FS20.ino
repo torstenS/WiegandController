@@ -1,6 +1,6 @@
 #include  <util/parity.h>
 
-#define PINFS20 12             // output pin for FS20 send
+#define PINFS20 7             // output pin for FS20 send
 
 #define FS20HC        0x35a4   // housecode
 #define FS20ADDR_BELL 0x11     // address byte for bell

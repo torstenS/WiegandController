@@ -30,14 +30,14 @@
 #define PINLED 10                    // output pin for keypad led
 #define PINBUZZ 9                    // output pin for keypad buzzer
 #define PINRING 8                    // output pin for door bell
-#define PINRFPOWER 7                 // output pin for RF power
+//#define PINRFPOWER 7                 // output pin for RF power
 #define PINWRONGCODE 6               // output pin for signaling too many wrong codes to outside
 #define PINRINGACTIVE_MS 300         // time for ring to be active
 #define PINRINGACTIVE HIGH           // HIGH for the schematics posted in blog; LOW for typical Arduino Relay Boards
 
 #define PUNISHWRONGCODES 5           // after this amount of wrong codes, sleep for punish time
 //#define PUNISHTIME_SEC 3*60UL        // sleep this time if punish, this is also the time window for wrong codes to count up
-#define PUNISHTIME_SEC 3UL        // sleep this time if punish, this is also the time window for wrong codes to count up
+#define PUNISHTIME_SEC 30UL        // sleep this time if punish, this is also the time window for wrong codes to count up
 
 #define MINRAMBYTES 200              // min amount of bytes to keep free in RAM for stack
 #define EEPROMSIZE 1024
@@ -181,8 +181,8 @@ void SetupCodeHandling()
   digitalWrite(PINCLOSE, !PINOPENCLOSEACTIVE);
   pinMode(PINOPEN, OUTPUT);       
   digitalWrite(PINOPEN, !PINOPENCLOSEACTIVE);
-  pinMode(PINRFPOWER, OUTPUT);    // pin high is active
-  digitalWrite(PINRFPOWER, LOW);
+  //pinMode(PINRFPOWER, OUTPUT);    // pin high is active
+  //digitalWrite(PINRFPOWER, LOW);
   pinMode(PINRING, OUTPUT);       // pin high is defined
   digitalWrite(PINRING, !PINRINGACTIVE);
   pinMode(PINWRONGCODE, OUTPUT);  // pin high is active
@@ -308,8 +308,8 @@ byte HandleCode(byte bFunctionCode, unsigned long ulCardCode)
 void DoDoor(byte bAction, byte bUser)
 {
 
-    digitalWrite(PINRFPOWER, HIGH);  // power to RF transmitter
-    pause(50);
+    //digitalWrite(PINRFPOWER, HIGH);  // power to RF transmitter
+    //pause(50);
     if (bAction == 1)
     {
       digitalWrite(PINOPEN, PINOPENCLOSEACTIVE);
@@ -341,7 +341,7 @@ void DoDoor(byte bAction, byte bUser)
     #endif
     digitalWrite(PINOPEN, !PINOPENCLOSEACTIVE);
     digitalWrite(PINCLOSE, !PINOPENCLOSEACTIVE);
-    digitalWrite(PINRFPOWER, LOW);
+    //digitalWrite(PINRFPOWER, LOW);
     digitalWrite(PINLED,HIGH);
     
     pause(150);
@@ -369,23 +369,18 @@ void DoFail()
   SetTamperFlag(true);
 
   // provide some signal for wrong code
-  /*  
   pause(100);  // small pause to separate from code entry / tag detection beeps
-  
-  for (ii=0;ii<5;ii++) // sum of loop is one second
+  //digitalWrite(PINBUZZ,LOW);  // Buzzer is active on low  
+  for (ii=0;ii<6;ii++) // sum of loop is 1.2 second
   {
     digitalWrite(PINLED,LOW);  // LED is active on low
-    digitalWrite(PINBUZZ,LOW);  // Buzzer is active on low
+    //digitalWrite(PINBUZZ,LOW);  // Buzzer is active on low
     pause(100);
     digitalWrite(PINLED,HIGH);
-    digitalWrite(PINBUZZ,HIGH);
+    //digitalWrite(PINBUZZ,HIGH);
     pause(100); 
   }
-  */
-  
-  digitalWrite(PINBUZZ,LOW);  // Buzzer is active on low
-  pause(1200);
-  digitalWrite(PINBUZZ,HIGH);
+  //digitalWrite(PINBUZZ,HIGH);
   pause(100); 
   
   // last wrong code long ago? - reset or count up

@@ -74,7 +74,7 @@ void fs20cmd(uint16_t house, uint8_t adr, uint8_t cmd, uint8_t cmd2 = 0) {
 
 void doSendRing()
 {
-  fs20cmd(FS20HC, FS20ADDR_BELL, 16);
+  fs20cmd(FS20HC, FS20ADDR_BELL, 17);
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -139,7 +139,7 @@ void doSendStatus()
   {
     // send on,off code with user and toggle bit in extension byte
     Serial.println(F("Reporting door status via FS20"));
-    fs20cmd(FS20HC, FS20ADDR_DOOR, isDoorLocked ? 16 : 0, bUser + (toggleStatus ? 128 : 0));
+    fs20cmd(FS20HC, FS20ADDR_DOOR, isDoorLocked ? 17 : 0, bUser + (toggleStatus ? 128 : 0));
     nextReportMillis += REPORT_INTERVALL;
   }
 }

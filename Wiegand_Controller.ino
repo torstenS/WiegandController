@@ -11,6 +11,7 @@
                                     - user and pin management
                                     - FS20 output
                                     - 8bit Wiegand keycode input
+  V. 1.4 Torsten Schumacher 2017 - UI uses Software serial
                                     
   Copyright: public domain -> do what you want
   
@@ -41,7 +42,7 @@ void setup()
    wdt_disable();
 
   Serial.begin(9600);
-  Serial.println(F("Wiegand Controller V.1.3 - T.S. 2017"));
+  Serial.println(F("Wiegand Controller V.1.4 - T.S. 2017"));
 
   // setup helpers
   SetupCodeHandling();
@@ -132,6 +133,9 @@ void loop()
           if (!bDryRun)
           {
             bKeypadUser = HandleCode(bKeypadUser, ulKeypadCode);
+          } else {
+            // report ulKeypadCode to UI
+            PrintCode(ulKeypadCode);
           }
           ulKeypadCode=0;
           ulCodeCount = 0;
@@ -179,6 +183,9 @@ void loop()
           ulKeypadCode = 0;
           ulCodeCount = 0;          
           ulLastCodeEntry = millis();
+        } else {
+            // report ulCardCode to UI          
+            PrintCode(ulCardCode);
         }
       } 
     }
@@ -191,6 +198,7 @@ void loop()
     WiegandReset();
   }
   doSendStatus();
+  uiEvent();
   // reset the watchdog timer
   wdt_reset();
 }
